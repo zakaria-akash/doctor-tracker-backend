@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# environment files (commit only the template)
+.env
+.env.*
+!.env.example
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# tests & coverage
+coverage/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# deployment
+.vercel
