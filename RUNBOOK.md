@@ -2256,8 +2256,8 @@ await mongoose.disconnect();
 > this runbook.** Use the [VPS deployment and migration plan](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md)
 > as the single source of truth, and wait for explicit permission before changing the server.
 
-**Planned public addresses (not live yet):** web `https://dt.58def4e4.nip.io` · API
-`https://api.58def4e4.nip.io`. These names do not use any domain belonging to an existing VPS site.
+**Planned public addresses (not live yet):** web `https://doctor-tracker.58def4e4.nip.io` · API
+`https://doctor-tracker-api.58def4e4.nip.io`. These names do not use any domain belonging to an existing VPS site.
 
 ### Safe deployment gates
 
@@ -2277,7 +2277,7 @@ await mongoose.disconnect();
 
 ### ✅ Definition of Done — B9
 
-- [ ] `https://dt.58def4e4.nip.io` and `https://api.58def4e4.nip.io/api/v1/health`
+- [ ] `https://doctor-tracker.58def4e4.nip.io` and `https://doctor-tracker-api.58def4e4.nip.io/api/v1/health`
       are reachable with valid HTTPS from outside the VPS.
 - [ ] Migrated collections, indexes, references, auth, and key user journeys are verified.
 - [ ] Every existing website matches its baseline and its configuration remains unchanged.
@@ -2294,7 +2294,7 @@ Same five mandatory sections, same order as the PDF, plus API-specific extras.
 ````markdown
 # 🩺 Doctor Tracker — REST API
 
-<badges> · **Planned base URL:** https://api.58def4e4.nip.io/api/v1 · **Docs:** https://api.58def4e4.nip.io/api/docs
+<badges> · **Planned base URL:** https://doctor-tracker-api.58def4e4.nip.io/api/v1 · **Docs:** https://doctor-tracker-api.58def4e4.nip.io/api/docs
 > 🖥️ Planned for the shared Hostinger KVM 4 VPS · Nginx + Let's Encrypt · systemd · MongoDB 8 (authentication, verified backups).
 
 ## 1. Description
@@ -2363,9 +2363,9 @@ ER diagram · index ↔ query table (RUNBOOK §B2.5)
 | `ERR_ERL_KEY_GEN_IPV6` warning | Custom `keyGenerator` using `req.ip` directly | Wrap it: `ipKeyGenerator(req.ip)` |
 | Dashboard day buckets off by one | Bucketing in UTC | `APP_TIMEZONE` drives `$dateToString` and the period keys |
 | Search finds nothing for seeded data | Tokens missing (`insertMany` skips hooks) | Verify token generation and repair affected records; do not reseed production data |
-| `502 Bad Gateway` on `api.58def4e4.nip.io` | API service stopped or its private listener is unavailable | Check the dedicated systemd service, journal, and listener; leave other sites untouched |
+| `502 Bad Gateway` on `doctor-tracker-api.58def4e4.nip.io` | API service stopped or its private listener is unavailable | Check the dedicated systemd service, journal, and listener; leave other sites untouched |
 | `Authentication failed` against the VPS MongoDB | Wrong `authSource`, or a password with special characters | `…/doctor_tracker?authSource=doctor_tracker` · use an alphanumeric password or URL-encode it |
-| Certbot fails | `nip.io` DNS is not resolving to the VPS yet, or port 80 is unavailable | Check `api.58def4e4.nip.io` from external resolvers and inspect the existing Nginx/ACME route without disrupting other sites |
+| Certbot fails | `nip.io` DNS is not resolving to the VPS yet, or port 80 is unavailable | Check `doctor-tracker-api.58def4e4.nip.io` from external resolvers and inspect the existing Nginx/ACME route without disrupting other sites |
 | `mongorestore` duplicate-key errors | Target collection already has data | Stop and inspect the target; restore into a new empty staging database after review, never use `--drop` blindly |
 | API gone after a reboot | Dedicated systemd unit did not restart | Inspect the unit status and journal, then follow the shared-VPS deployment plan |
 | `EALLOWSCRIPTS` running `npx <tool>` | User-level `allow-scripts` in `~/.npmrc` leaks through npx | Run `./node_modules/.bin/<tool>` directly |
@@ -2400,7 +2400,7 @@ ER diagram · index ↔ query table (RUNBOOK §B2.5)
 | `JWT_EXPIRES_IN` | `8h` | — | jose duration string |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | `doctor-tracker-api` / `doctor-tracker-web` | — | Must match the frontend |
 | `BCRYPT_ROUNDS` | `10` | — | 8–14 · use 12 on the VPS |
-| `CORS_ORIGINS` | frontend development origin | ✅ `https://dt.58def4e4.nip.io` | Comma-separated |
+| `CORS_ORIGINS` | frontend development origin | ✅ `https://doctor-tracker.58def4e4.nip.io` | Comma-separated |
 | `APP_TIMEZONE` | `Asia/Dhaka` | — | IANA timezone for dashboard buckets |
 | `LOG_LEVEL` | `info` | — | `debug` locally |
 

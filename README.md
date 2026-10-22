@@ -48,7 +48,7 @@ Browser / Next.js server  ━━━▶  Express API  ━━━▶  MongoDB
 
 **Development Swagger UI:** append `/api/docs` to that same origin.
 
-**Planned public API:** `https://api.58def4e4.nip.io` (not live until deployment and HTTPS checks pass).
+**Planned public API:** `https://doctor-tracker-api.58def4e4.nip.io` (not live until deployment and HTTPS checks pass).
 
 The planned public hostname is documented, but no live deployment, screenshots, or query-plan
 capture has been verified yet. The deployment and evidence sections below remain marked as
@@ -434,7 +434,7 @@ Internet → Nginx with TLS → isolated Express service → authenticated Mongo
 
 The [VPS deployment and migration plan](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md) is the source of truth
 for the shared Hostinger VPS. It proposes separate systemd services, dedicated Nginx hosts at
-`https://dt.58def4e4.nip.io` and `https://api.58def4e4.nip.io`, a separate authenticated database,
+`https://doctor-tracker.58def4e4.nip.io` and `https://doctor-tracker-api.58def4e4.nip.io`, a separate authenticated database,
 and verified backups. Before publishing, set `NODE_ENV=production`, bind `HOST` to the VPS loopback
 interface, configure a production database URI, a new 32+ character shared JWT secret,
 `BCRYPT_ROUNDS=12`, and the planned HTTPS frontend origin in `CORS_ORIGINS`.

@@ -11,12 +11,12 @@
 
 ## 🌍 Public addresses and launch gate
 
-| Purpose                       | Planned address                                    |
-| ----------------------------- | -------------------------------------------------- |
-| 🖥️ Staff web app              | [dt.58def4e4.nip.io](https://dt.58def4e4.nip.io)   |
-| 🔌 REST API and documentation | [api.58def4e4.nip.io](https://api.58def4e4.nip.io) |
+| Purpose                       | Planned address                                                                  |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| 🖥️ Staff web app              | [doctor-tracker.58def4e4.nip.io](https://doctor-tracker.58def4e4.nip.io)         |
+| 🔌 REST API and documentation | [doctor-tracker-api.58def4e4.nip.io](https://doctor-tracker-api.58def4e4.nip.io) |
 
-Both names use the shorter hexadecimal encoding of the VPS public IPv4, **88.222.244.228**. Their A records resolved correctly through **Cloudflare (1.1.1.1)** and **Google (8.8.8.8)** during the audit. The hex form shortens the URL but does not hide the public IP from DNS lookups. `nip.io` needs no zone edits to any existing website domain. Nginx will serve the new names on the already-open public ports **80/443**; the applications and MongoDB remain bound to loopback.
+Both names use the hexadecimal encoding of the VPS public IPv4, **88.222.244.228**. The replacement hostnames' A records resolved correctly through **Cloudflare (1.1.1.1)** and **Google (8.8.8.8)** during this documentation update. The hex form does not hide the public IP from DNS lookups. `nip.io` needs no zone edits to any existing website domain. Nginx will serve the new names on the already-open public ports **80/443**; the applications and MongoDB remain bound to loopback.
 
 > [!WARNING]
 > DNS resolution is not proof of worldwide availability. HTTPS certificates, real requests from at least two external networks/regions, and renewal must pass before announcing the site. Some networks may block dynamic-IP DNS names. `nip.io` is a third-party dependency, and an IP change changes both hostnames and requires new certificates. Never advertise the HTTP version: secure login cookies require HTTPS.
