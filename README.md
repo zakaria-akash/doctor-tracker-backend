@@ -11,7 +11,8 @@
 ![MongoDB](https://img.shields.io/badge/MongoDB-8-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
 ![Mongoose](https://img.shields.io/badge/Mongoose-9-880000?style=for-the-badge&logo=mongoose&logoColor=white)
 ![Zod](https://img.shields.io/badge/Zod-4-3E67B1?style=for-the-badge&logo=zod&logoColor=white)
-![Status](https://img.shields.io/badge/status-local_development-F59E0B?style=for-the-badge)
+![Status](https://img.shields.io/badge/status-live-16A34A?style=for-the-badge)
+![Hosting](https://img.shields.io/badge/hosting-Hostinger_KVM_4_VPS-673DE6?style=for-the-badge&logo=hostinger&logoColor=white)
 
 **Companion application:** Doctor Tracker Frontend · Next.js 16 · maintained in a separate repository
 
@@ -42,17 +43,18 @@ Browser / Next.js server  ━━━▶  Express API  ━━━▶  MongoDB
 | 🚪 Signed out |   Public health and login only    |            —             |
 
 > [!IMPORTANT]
-> This repository contains a local demo-data seeder and sample login accounts for development. Use only synthetic/demo data with those accounts, and never use the demo credentials or `--force` against a production database.
+> This repository contains a demo-data seeder and demo sign-in accounts. The public deployment intentionally serves that synthetic dataset and keeps the demo accounts public. Never use the demo accounts for real data, and never run the seeder (least of all with `--force`) against a database that holds real records.
+
+**Live API:** `https://doctor-tracker-api.58def4e4.nip.io/api/v1` ·
+[Swagger UI](https://doctor-tracker-api.58def4e4.nip.io/api/docs) ·
+[health](https://doctor-tracker-api.58def4e4.nip.io/api/v1/health)
 
 **Development API:** append `/api/v1` to the origin printed by `npm run dev`.
 
 **Development Swagger UI:** append `/api/docs` to that same origin.
 
-**Planned public API:** `https://doctor-tracker-api.58def4e4.nip.io` (not live until deployment and HTTPS checks pass).
-
-The planned public hostname is documented, but no live deployment, screenshots, or query-plan
-capture has been verified yet. The deployment and evidence sections below remain marked as
-planned or pending rather than claiming external work that has not been verified.
+The API has been deployed on a Hostinger KVM 4 VPS since 22 October 2026 and was verified end to end
+(see [Deployment](#deployment)). Screenshots and a captured query plan are not committed yet.
 
 ## 1. Description
 
@@ -103,20 +105,20 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 `.env` is ignored by Git. Do not commit a real database URI, JWT secret, or production origin.
 The validated settings are:
 
-| Variable         | Development default     | Notes                                                          |
-| ---------------- | ----------------------- | -------------------------------------------------------------- |
-| `NODE_ENV`       | `development`           | Accepted values: `development`, `test`, `production`.          |
-| `HOST`           | `0.0.0.0`               | Bind only to the VPS loopback interface behind Nginx.          |
-| `PORT`           | `4000`                  | HTTP listener port.                                            |
-| `LOG_LEVEL`      | `info`                  | Pino level; the example uses `debug`.                          |
-| `MONGODB_URI`    | —                       | Required. Use a distinct database name per environment.        |
-| `JWT_SECRET`     | —                       | Required; at least 32 characters and shared with the frontend. |
-| `JWT_EXPIRES_IN` | `8h`                    | `jose` duration string.                                        |
-| `JWT_ISSUER`     | `doctor-tracker-api`    | Must match JWT verification settings.                          |
-| `JWT_AUDIENCE`   | `doctor-tracker-web`    | Must match JWT verification settings.                          |
-| `BCRYPT_ROUNDS`  | `10`                    | Allowed range: 8–14; use 12 on the planned VPS.                |
-| `CORS_ORIGINS`   | Frontend dev origin     | Comma-separated browser origin allow-list; set it explicitly.  |
-| `APP_TIMEZONE`   | `Asia/Dhaka`            | IANA zone used for analytics buckets.                          |
+| Variable         | Development default  | Notes                                                          |
+| ---------------- | -------------------- | -------------------------------------------------------------- |
+| `NODE_ENV`       | `development`        | Accepted values: `development`, `test`, `production`.          |
+| `HOST`           | `0.0.0.0`            | Production uses `127.0.0.1`, reachable only through Nginx.     |
+| `PORT`           | `4000`               | HTTP listener port.                                            |
+| `LOG_LEVEL`      | `info`               | Pino level; the example uses `debug`.                          |
+| `MONGODB_URI`    | —                    | Required. Use a distinct database name per environment.        |
+| `JWT_SECRET`     | —                    | Required; at least 32 characters and shared with the frontend. |
+| `JWT_EXPIRES_IN` | `8h`                 | `jose` duration string.                                        |
+| `JWT_ISSUER`     | `doctor-tracker-api` | Must match JWT verification settings.                          |
+| `JWT_AUDIENCE`   | `doctor-tracker-web` | Must match JWT verification settings.                          |
+| `BCRYPT_ROUNDS`  | `10`                 | Allowed range: 8–14; the live VPS uses 12.                     |
+| `CORS_ORIGINS`   | Frontend dev origin  | Comma-separated browser origin allow-list; set it explicitly.  |
+| `APP_TIMEZONE`   | `Asia/Dhaka`         | IANA zone used for analytics buckets.                          |
 
 Node's built-in `--env-file-if-exists` option loads `.env`; this project intentionally does not
 depend on `dotenv` or `nodemon`.
@@ -256,7 +258,7 @@ been verified:
 | Swagger UI       | Start the API, authenticate with seeded local data, and capture `/api/docs`.                                                                      |
 | Query plans      | Seed data, run `npm run db:indexes`, then run `node --env-file-if-exists=.env scripts/explain.js`; capture plans showing the selected index scan. |
 | MongoDB indexes  | Capture the index list from Atlas Data Explorer, Compass, or `npm run db:indexes`.                                                                |
-| Deployment proof | Capture the HTTPS health endpoint only after a real domain, certificate, and deployment exist.                                                    |
+| Deployment proof | Live since 22 Oct 2026: the public `/api/v1/health` returns `status: ok, db: up`. Capture it and the live Swagger UI.                             |
 
 ## API Reference
 
@@ -406,8 +408,16 @@ is committed yet, so this README does not claim that an execution plan has been 
 - The shared error handler normalizes malformed JSON, validation, duplicate keys, JWT, and Mongoose
   errors. Production responses omit stack traces.
 
-Operational controls such as firewall rules, database authentication, HTTPS certificates, backups,
-and secret permissions must still be configured in the deployment environment.
+On the live VPS, these operational controls are in place:
+
+- a firewall that allows only SSH, HTTP and HTTPS;
+- loopback-only MongoDB with authentication and a least-privilege app user;
+- Let's Encrypt HTTPS;
+- root-owned secrets that only the app's group can read;
+- nightly verified backups;
+- a sandboxed systemd service.
+
+See [Deployment](#deployment).
 
 ## Testing
 
@@ -426,26 +436,38 @@ as those contracts evolve.
 
 ## Deployment
 
-No deployment has been completed or linked from this repository. The planned production topology is:
+The API has been live at `https://doctor-tracker-api.58def4e4.nip.io` since 22 October 2026. It is
+self-hosted with the frontend (`https://doctor-tracker.58def4e4.nip.io`) on a shared Hostinger KVM 4
+VPS running Ubuntu 24.04, isolated from the other websites on that server.
 
 ```text
-Internet → Nginx with TLS → isolated Express service → authenticated MongoDB
+Internet → Nginx (Let's Encrypt TLS, HTTP/2) → Express on 127.0.0.1:4100 → MongoDB 8 on loopback
 ```
 
-The [VPS deployment and migration plan](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md) is the source of truth
-for the shared Hostinger VPS. It proposes separate systemd services, dedicated Nginx hosts at
-`https://doctor-tracker.58def4e4.nip.io` and `https://doctor-tracker-api.58def4e4.nip.io`, a separate authenticated database,
-and verified backups. Before publishing, set `NODE_ENV=production`, bind `HOST` to the VPS loopback
-interface, configure a production database URI, a new 32+ character shared JWT secret,
-`BCRYPT_ROUNDS=12`, and the planned HTTPS frontend origin in `CORS_ORIGINS`.
+- **Service:** `doctor-tracker-api.service` runs `node src/server.js` as an unprivileged system user.
+  Its settings are `NODE_ENV=production`, `HOST=127.0.0.1`, `PORT=4100`, `BCRYPT_ROUNDS=12` and
+  `LOG_LEVEL=warn`, plus a new shared JWT secret and the HTTPS web origin in `CORS_ORIGINS`. systemd
+  provides sandboxing, a budget of one CPU and 512 MiB, and automatic restarts.
+- **Database:** `doctor_tracker` lives on the server's authenticated, loopback-only MongoDB. The app's
+  user can read and write only that database; backups use a separate read-only user.
+- **Data:** the Atlas `doctor_tracker_dev` data was migrated with `mongodump`/`mongorestore` (BSON
+  archive, namespace mapping, no `--drop`), first as a trial restore. Counts, all 15 indexes and
+  per-collection SHA-256 hashes of the stored BSON matched Atlas exactly.
+- **Backups:** nightly archives with checksums are kept for 14 days. A restore drill reproduced the
+  live data byte for byte.
+- **Releases:** `sudo doctor-tracker-release deploy api <git-archive.tar.gz>` installs production
+  dependencies in a capped build unit and switches releases atomically. It then waits for
+  `/api/v1/health` and rolls back automatically on failure.
 
-After deployment, validate the following rather than relying on this README as evidence:
+Checks at launch:
 
-1. Nginx proxies HTTPS requests to the local API and `/api/v1/health` returns `200`.
-2. MongoDB has authorization enabled and is not exposed publicly.
-3. Review index changes before any production synchronization; confirm the expected indexes.
-4. systemd restarts the service after a reboot and graceful shutdown disconnects Mongoose.
-5. A backup and restore drill have succeeded.
+- public HTTPS `/api/v1/health` returned `200` with `db: "up"`, and Swagger is served at `/api/docs`;
+- requests without a token get `401`, and CORS answers only the web origin;
+- ports 4100 and 27017 are unreachable from the internet;
+- sign-in, search, filters, analytics, role checks and a create/edit/delete cycle all passed.
+
+The [deployment record](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md) has the full procedure, results, and
+rollback steps.
 
 ## Assumptions
 

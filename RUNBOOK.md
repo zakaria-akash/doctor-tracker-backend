@@ -15,9 +15,10 @@
 ![Vitest](https://img.shields.io/badge/Vitest-5-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
 ![Hostinger VPS](https://img.shields.io/badge/Hosting-Hostinger_KVM_4-673DE6?style=for-the-badge&logo=hostinger&logoColor=white)
 ![Nginx](https://img.shields.io/badge/Nginx-reverse_proxy-009639?style=for-the-badge&logo=nginx&logoColor=white)
-![systemd](https://img.shields.io/badge/systemd-planned_service_manager-2B037A?style=for-the-badge&logo=linux&logoColor=white)
+![systemd](https://img.shields.io/badge/systemd-service_manager-2B037A?style=for-the-badge&logo=linux&logoColor=white)
+![Status](https://img.shields.io/badge/status-live_since_22_Oct_2026-16A34A?style=for-the-badge)
 
-📘 **Companion runbook:** [Frontend RUNBOOK](https://github.com/zakaria-akash/doctor-tracker/blob/main/RUNBOOK.md) — frontend, master plan, hosting & submission
+📘 **Companion runbook:** [Frontend RUNBOOK](https://github.com/zakaria-akash/doctor-tracker/blob/main/RUNBOOK.md) — frontend, master plan, hosting & submission · **Live deployment:** [VPS deployment and migration record](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md)
 
 | 🎯 [Mission](#mission) | 🏗️ [Architecture](#architecture) | 📜 [API contract](#contract) | 🛠️ [Build B0→B8](#b0) | 🚀 [Deploy](#b9) | 📝 [README](#b10) | 🧯 [Troubleshooting](#troubleshooting) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -1372,7 +1373,7 @@ Invoke-RestMethod -Uri "$apiBase/api/v1/auth/me" -Headers $auth
 - [ ] Correct credentials → token + user · wrong password → `401 "Invalid email or password"`
 - [ ] 11th wrong attempt for the same email within 15 min → `429`
 - [ ] No token → `401` · tampered token → `401` · viewer token on a write → `403`
-- [ ] **Before any VPS deployment,** review the [shared-VPS deployment plan](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md) and obtain the owner's explicit permission. Keep all existing sites untouched.
+- [x] **Before any VPS deployment,** review the shared-VPS deployment plan and obtain the owner's explicit permission. Keep all existing sites untouched. *(Done: approved and deployed on 22 Oct 2026; see the [deployment record](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md).)*
 
 ---
 
@@ -2025,9 +2026,9 @@ metaRouter.get('/options', async (_req, res) => {
 | ☐ | `helmet` headers · CORS allow-list · JSON body limit 100 kb · `x-powered-by` off | `app.js` |
 | ☐ | No stack traces in production responses · auth headers redacted from logs | `error-handler.js`, `logger.js` |
 | ☐ | Secrets only in env vars · `.env` git-ignored · `.env.example` documents everything | repo |
-| ☐ | MongoDB bound to the loopback interface with authorization on · app user limited to `readWrite` on one database | VPS ([B9](#b9)) |
-| ☐ | UFW allows only 22/80/443 · SSH key-only, no root login · fail2ban · unattended security upgrades | VPS ([B9](#b9)) |
-| ☐ | HTTPS everywhere (Let's Encrypt, auto-renew) · API and Next.js bound to private loopback listeners behind Nginx | VPS ([B9](#b9)) |
+| ✅ | MongoDB bound to the loopback interface with authorization on · app user limited to `readWrite` on one database | VPS ([B9](#b9)) · verified 22 Oct 2026 |
+| ✅ | UFW allows only 22/80/443 · SSH key-only, no root login · fail2ban · unattended security upgrades | VPS ([B9](#b9)) · verified 22 Oct 2026 |
+| ✅ | HTTPS everywhere (Let's Encrypt, auto-renew) · API and Next.js bound to private loopback listeners behind Nginx | VPS ([B9](#b9)) · verified 22 Oct 2026 |
 
 > [!WARNING]
 > Don't add `express-mongo-sanitize` or other Express-4-era middleware that **assigns** `req.query`. In Express 5 `req.query` is a getter, so they crash with *"Cannot set property query"*. The protections above already cover the threat.
@@ -2248,40 +2249,53 @@ await mongoose.disconnect();
 
 <a id="b9"></a>
 
-## 🚀 12. Phase B9 — Deployment on the existing shared VPS
+## 🚀 12. Phase B9 — Deployment on the existing shared VPS ✅
 
-> [!IMPORTANT]
-> This VPS already hosts other websites. The old fresh-server, PM2, and in-place migration
-> examples were removed because they are unsafe for this host. **No deployment is authorized by
-> this runbook.** Use the [VPS deployment and migration plan](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md)
-> as the single source of truth, and wait for explicit permission before changing the server.
+> [!NOTE]
+> **Deployed and verified on 22 October 2026.** The [VPS deployment and migration record](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md)
+> documents every step, the measured results, operations, and rollback. This VPS already hosts other
+> websites, so the old fresh-server, PM2, and in-place migration examples were never used.
 
-**Planned public addresses (not live yet):** web `https://doctor-tracker.58def4e4.nip.io` · API
-`https://doctor-tracker-api.58def4e4.nip.io`. These names do not use any domain belonging to an existing VPS site.
+**Live addresses:** web `https://doctor-tracker.58def4e4.nip.io` · API
+`https://doctor-tracker-api.58def4e4.nip.io/api/v1` · docs `https://doctor-tracker-api.58def4e4.nip.io/api/docs`.
+These names do not use any domain belonging to an existing VPS site.
 
-### Safe deployment gates
+### What runs on the VPS
 
-1. Capture a read-only baseline of every current website, Nginx configuration, service, port,
-   database, and backup. Recheck the VPS snapshot and available capacity.
-2. Stage the new frontend and backend under a dedicated account, directory tree, systemd units,
-   Nginx server names, and database. Keep all app and database listeners private behind Nginx.
-3. Make a verified BSON backup of Atlas `doctor_tracker_dev`, restore into an isolated staging
-   database, validate counts, indexes, references, and authentication, then schedule a brief
-   write freeze for the final copy. Never run the destructive demo seeder on production data.
-4. Test both `nip.io` DNS names externally and obtain HTTPS certificates. Preserve all existing
-   virtual hosts, certificates, services, databases, and backup jobs.
-5. Check the web app, API health and docs, login, doctor/patient workflows, analytics, data
-   counts, backups, and **every pre-existing website** before declaring a cutover successful.
-6. If any existing site regresses, stop and follow the scoped rollback in the deployment plan;
-   do not restore the whole VPS snapshot casually because that would roll back unrelated sites.
+| Piece | Implementation |
+| --- | --- |
+| Process | `doctor-tracker-api.service`: `node src/server.js` on `127.0.0.1:4100` as the unprivileged `doctortracker` user, sandboxed by systemd, ≤ 1 CPU / 512 MiB, automatic restarts |
+| Configuration | `/etc/doctor-tracker/api.env` (root-owned, app-group readable): `NODE_ENV=production`, `HOST=127.0.0.1`, `PORT=4100`, `BCRYPT_ROUNDS=12`, `LOG_LEVEL=warn`, HTTPS web origin in `CORS_ORIGINS`, new shared JWT secret |
+| Database | `doctor_tracker` on the server's loopback-only, authenticated MongoDB 8 · app user `readWrite` on this database only · separate read-only backup user |
+| Edge | Nginx vhost `doctor-tracker-api.conf`: Let's Encrypt TLS, HTTP/2, 10 sign-in POSTs/min per IP, `/` → `/api/docs/` |
+| Backups | `doctor-tracker-mongodb-backup.timer` daily (≈ 04:10 Asia/Dhaka), 14-day retention, SHA-256 per archive; restore drill passed |
+| Releases | `sudo doctor-tracker-release deploy api ~/api.tar.gz` (a `git archive` tarball) builds production dependencies in a capped unit, switches releases atomically, health-checks `/api/v1/health`, and rolls back automatically |
+
+### Deployment gates — all passed
+
+1. ✅ Read-only baseline of every current website (50 external probes), Nginx, services, ports, capacity,
+   and DNS through four public resolvers.
+2. ✅ Dedicated account, release tree, systemd units, Nginx server names, and database; all app and
+   database listeners private behind Nginx.
+3. ✅ BSON archive of Atlas `doctor_tracker_dev` → trial restore into `doctor_tracker_stage` →
+   write-frozen final restore into `doctor_tracker` (namespace mapping, `--stopOnError`, no `--drop`).
+   48 doctors, 1,500 patients, 2 users, 15 indexes, 0 orphan patients; per-collection BSON SHA-256 identical
+   to Atlas. The destructive demo seeder never ran on the VPS.
+4. ✅ Both `nip.io` names resolved externally; Let's Encrypt staging dry run, then issuance. All existing
+   virtual hosts, certificates, services, databases, and backup jobs were preserved; every reload was
+   tested with `nginx -t` and graceful.
+5. ✅ Web app, API health and docs, sign-in, doctor/patient workflows, analytics, roles, data counts,
+   backups, and **every pre-existing website** (50/50 probes unchanged) checked before and after cutover.
+6. ✅ No rollback was needed. Scoped rollback steps are in the record; a whole-VPS snapshot restore is
+   a last resort only, because it would roll back unrelated sites.
 
 ### ✅ Definition of Done — B9
 
-- [ ] `https://doctor-tracker.58def4e4.nip.io` and `https://doctor-tracker-api.58def4e4.nip.io/api/v1/health`
+- [x] `https://doctor-tracker.58def4e4.nip.io` and `https://doctor-tracker-api.58def4e4.nip.io/api/v1/health`
       are reachable with valid HTTPS from outside the VPS.
-- [ ] Migrated collections, indexes, references, auth, and key user journeys are verified.
-- [ ] Every existing website matches its baseline and its configuration remains unchanged.
-- [ ] Independent backup and restore verification is complete.
+- [x] Migrated collections, indexes, references, auth, and key user journeys are verified.
+- [x] Every existing website matches its baseline and its configuration remains unchanged.
+- [x] Independent backup and restore verification is complete.
 
 ---
 
@@ -2294,8 +2308,8 @@ Same five mandatory sections, same order as the PDF, plus API-specific extras.
 ````markdown
 # 🩺 Doctor Tracker — REST API
 
-<badges> · **Planned base URL:** https://doctor-tracker-api.58def4e4.nip.io/api/v1 · **Docs:** https://doctor-tracker-api.58def4e4.nip.io/api/docs
-> 🖥️ Planned for the shared Hostinger KVM 4 VPS · Nginx + Let's Encrypt · systemd · MongoDB 8 (authentication, verified backups).
+<badges> · **Live base URL:** https://doctor-tracker-api.58def4e4.nip.io/api/v1 · **Docs:** https://doctor-tracker-api.58def4e4.nip.io/api/docs
+> 🖥️ Self-hosted on the shared Hostinger KVM 4 VPS · Nginx + Let's Encrypt · systemd · MongoDB 8 (authentication, verified backups).
 
 ## 1. Description
 <one paragraph: secure, validated, index-optimized REST API powering the Doctor Tracker admin portal>
@@ -2363,11 +2377,11 @@ ER diagram · index ↔ query table (RUNBOOK §B2.5)
 | `ERR_ERL_KEY_GEN_IPV6` warning | Custom `keyGenerator` using `req.ip` directly | Wrap it: `ipKeyGenerator(req.ip)` |
 | Dashboard day buckets off by one | Bucketing in UTC | `APP_TIMEZONE` drives `$dateToString` and the period keys |
 | Search finds nothing for seeded data | Tokens missing (`insertMany` skips hooks) | Verify token generation and repair affected records; do not reseed production data |
-| `502 Bad Gateway` on `doctor-tracker-api.58def4e4.nip.io` | API service stopped or its private listener is unavailable | Check the dedicated systemd service, journal, and listener; leave other sites untouched |
-| `Authentication failed` against the VPS MongoDB | Wrong `authSource`, or a password with special characters | `…/doctor_tracker?authSource=doctor_tracker` · use an alphanumeric password or URL-encode it |
+| `502 Bad Gateway` on `doctor-tracker-api.58def4e4.nip.io` | API service stopped or its private listener is unavailable | `systemctl status doctor-tracker-api` · `journalctl -u doctor-tracker-api` · `sudo doctor-tracker-release rollback api` if a new release is at fault; leave other sites untouched |
+| `Authentication failed` against the VPS MongoDB | Wrong `authSource`, or a password with special characters | The VPS users are defined in `admin`: `…/doctor_tracker?authSource=admin` · use an alphanumeric password or URL-encode it |
 | Certbot fails | `nip.io` DNS is not resolving to the VPS yet, or port 80 is unavailable | Check `doctor-tracker-api.58def4e4.nip.io` from external resolvers and inspect the existing Nginx/ACME route without disrupting other sites |
 | `mongorestore` duplicate-key errors | Target collection already has data | Stop and inspect the target; restore into a new empty staging database after review, never use `--drop` blindly |
-| API gone after a reboot | Dedicated systemd unit did not restart | Inspect the unit status and journal, then follow the shared-VPS deployment plan |
+| API gone after a reboot | Dedicated systemd unit did not restart | `systemctl is-enabled doctor-tracker-api` (must be `enabled`) · inspect `journalctl -u doctor-tracker-api -b`, as described in the deployment record |
 | `EALLOWSCRIPTS` running `npx <tool>` | User-level `allow-scripts` in `~/.npmrc` leaks through npx | Run `./node_modules/.bin/<tool>` directly |
 
 ---
@@ -2381,7 +2395,7 @@ ER diagram · index ↔ query table (RUNBOOK §B2.5)
 | Script | Command | Purpose |
 | --- | --- | --- |
 | `npm run dev` | `node --watch --env-file-if-exists=.env src/server.js` | Dev server with auto-restart |
-| `npm start` | `node --env-file-if-exists=.env src/server.js` | Production entry point for the planned dedicated systemd unit |
+| `npm start` | `node --env-file-if-exists=.env src/server.js` | Local production-mode run (the VPS unit runs `node src/server.js` directly with `/etc/doctor-tracker/api.env`) |
 | `npm run seed` | `node --env-file-if-exists=.env scripts/seed.js` | Reset + seed (`-- --force` for non-dev DBs) |
 | `npm run db:indexes` | `node --env-file-if-exists=.env scripts/sync-indexes.js` | Create/drop indexes to match the schemas |
 | `npm run lint` · `lint:fix` | `eslint .` | Static analysis |
@@ -2417,7 +2431,7 @@ ER diagram · index ↔ query table (RUNBOOK §B2.5)
 | B6 Patients API | ⬜ |
 | B7 Analytics API | ⬜ |
 | B8 Hardening & docs | ⬜ |
-| B9 VPS deploy + MongoDB migration | ⬜ |
+| B9 VPS deploy + MongoDB migration | ✅ 22 Oct 2026 |
 | B10 README | ⬜ |
 
 <div align="center">
