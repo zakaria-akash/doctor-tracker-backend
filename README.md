@@ -178,11 +178,11 @@ flowchart LR
   Browser[Browser] --> BFF[Next.js BFF / server layer]
   BFF -->|Bearer JWT| API[Express 5 API]
   API --> MW[Security, CORS, JSON, logs]
-  MW --> Router[/api/v1 router]
+  MW --> Router["/api/v1 router"]
   Router --> Services[Feature services]
   Services --> Models[Mongoose models and indexes]
   Models --> Mongo[(MongoDB)]
-  API --> Docs[/api/docs Swagger UI]
+  API --> Docs["/api/docs Swagger UI"]
 ```
 
 ### Request lifecycle
