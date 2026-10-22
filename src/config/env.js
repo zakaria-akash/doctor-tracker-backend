@@ -12,7 +12,18 @@ const EnvSchema = z.object({
   JWT_AUDIENCE: z.string().default('doctor-tracker-web'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(8).max(14).default(10),
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
-  APP_TIMEZONE: z.string().default('Asia/Dhaka'),
+  // Validate the IANA zone at startup so Intl-based analytics cannot fail on the first request.
+  APP_TIMEZONE: z
+    .string()
+    .default('Asia/Dhaka')
+    .refine((timeZone) => {
+      try {
+        new Intl.DateTimeFormat('en', { timeZone });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'APP_TIMEZONE must be a valid IANA timezone'),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

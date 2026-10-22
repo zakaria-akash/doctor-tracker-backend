@@ -4,13 +4,14 @@ export const openapiSpec = {
     title: 'Doctor Tracker API',
     version: '1.0.0',
     description:
-      'Sign in with `POST /auth/login`, click **Authorize**, then paste the returned token. Demo: admin@doctortracker.test / Admin@12345',
+      'Sign in with `POST /auth/login`, click **Authorize**, then paste the token returned for your configured account.',
   },
   servers: [{ url: '/api/v1' }],
   components: {
     securitySchemes: {
       bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
     },
+    // Shared response and request schemas keep the interactive docs consistent across endpoints.
     schemas: {
       Error: {
         type: 'object',
@@ -49,6 +50,80 @@ export const openapiSpec = {
             type: 'string',
             format: 'email',
             example: 'ayesha.rahman@doctortracker.test',
+          },
+        },
+      },
+      AnalyticsOverview: {
+        type: 'object',
+        required: [
+          'range',
+          'totals',
+          'patientsOverTime',
+          'patientsPerDoctor',
+          'byCondition',
+          'byStatus',
+          'doctorsBySpecialization',
+        ],
+        properties: {
+          range: {
+            type: 'object',
+            properties: {
+              key: { type: 'string', enum: ['7d', '30d', '90d', '12m', 'all'] },
+              from: { type: 'string', format: 'date-time' },
+              to: { type: 'string', format: 'date-time' },
+              unit: { type: 'string', enum: ['day', 'month'] },
+            },
+          },
+          totals: {
+            type: 'object',
+            properties: {
+              doctors: { type: 'integer' },
+              patients: { type: 'integer' },
+              critical: { type: 'integer' },
+              newPatients: { type: 'integer' },
+              newPatientsChangePct: { type: ['number', 'null'] },
+              avgPatientsPerDoctor: { type: 'number' },
+            },
+          },
+          patientsOverTime: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { period: { type: 'string' }, count: { type: 'integer' } },
+            },
+          },
+          patientsPerDoctor: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                doctorId: { type: 'string' },
+                name: { type: 'string' },
+                specialization: { type: 'string' },
+                count: { type: 'integer' },
+              },
+            },
+          },
+          byCondition: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { condition: { type: 'string' }, count: { type: 'integer' } },
+            },
+          },
+          byStatus: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { status: { type: 'string' }, count: { type: 'integer' } },
+            },
+          },
+          doctorsBySpecialization: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { specialization: { type: 'string' }, count: { type: 'integer' } },
+            },
           },
         },
       },
@@ -187,8 +262,36 @@ export const openapiSpec = {
     '/analytics/overview': {
       get: {
         tags: ['Analytics'],
-        summary: 'Dashboard aggregates',
-        responses: { 200: { description: 'Overview' } },
+        summary: 'Get timezone-aware dashboard aggregates',
+        description:
+          'Returns daily or monthly buckets with missing periods set to zero; results are cached for 60 seconds.',
+        parameters: [
+          {
+            name: 'range',
+            in: 'query',
+            required: false,
+            description: 'Preset interval; defaults to 12 months.',
+            schema: { type: 'string', enum: ['7d', '30d', '90d', '12m', 'all'], default: '12m' },
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Dashboard overview',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', const: true },
+                    data: { $ref: '#/components/schemas/AnalyticsOverview' },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: 'Unauthorized' },
+          422: { description: 'Unsupported range value' },
+        },
       },
     },
     '/meta/options': {

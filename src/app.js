@@ -15,7 +15,10 @@ import { apiRouter } from './routes/index.js';
 
 export const app = express();
 
+// Trust the single reverse proxy used in deployment so client IPs are available to rate limiters.
 app.set('trust proxy', 1);
+// Express 5's simple parser treats bracketed query keys literally instead of creating nested input.
+app.set('query parser', 'simple');
 app.disable('x-powered-by');
 
 // Swagger UI needs a relaxed CSP; every other endpoint gets the strict default.
@@ -38,6 +41,7 @@ app.use(
 app.use(compression());
 // Attach request logging before JSON parsing so malformed and oversized bodies are logged too.
 app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/v1/health' } }));
+// Bound JSON payload size before any route validation or database work runs.
 app.use(express.json({ limit: '100kb' }));
 
 app.get('/api/v1/health', (_req, res) => {
