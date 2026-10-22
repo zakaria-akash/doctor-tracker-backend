@@ -20,9 +20,9 @@ export function connectDB() {
       logger.info({ db: connection.name }, 'MongoDB connected');
       return connection;
     })
-    .catch((error) => {
+    .finally(() => {
+      // Keep only an in-flight attempt; a later disconnect must not reuse a stale resolved promise.
       connecting = null;
-      throw error;
     });
 
   return connecting;

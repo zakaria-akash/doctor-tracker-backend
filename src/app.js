@@ -36,8 +36,9 @@ app.use(
   }),
 );
 app.use(compression());
-app.use(express.json({ limit: '100kb' }));
+// Attach request logging before JSON parsing so malformed and oversized bodies are logged too.
 app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/v1/health' } }));
+app.use(express.json({ limit: '100kb' }));
 
 app.get('/api/v1/health', (_req, res) => {
   res.json({
