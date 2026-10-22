@@ -4,6 +4,46 @@
 > authentication, role-aware doctor and patient management, dashboard analytics, and filter
 > metadata over MongoDB.
 
+<div align="center">
+
+![Node.js](https://img.shields.io/badge/Node.js-24.x-5FA04E?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?style=for-the-badge&logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-8-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+![Mongoose](https://img.shields.io/badge/Mongoose-9-880000?style=for-the-badge&logo=mongoose&logoColor=white)
+![Zod](https://img.shields.io/badge/Zod-4-3E67B1?style=for-the-badge&logo=zod&logoColor=white)
+![Status](https://img.shields.io/badge/status-local_development-F59E0B?style=for-the-badge)
+
+**Companion application:** Doctor Tracker Frontend · Next.js 16 · maintained in a separate repository
+
+</div>
+
+---
+
+> [!NOTE]
+> **For non-technical readers:** this service is the secure data and rules layer behind the clinic dashboard. It checks who is asking, validates what they send, applies role permissions, and reads or updates the database. It supports care coordination; it does not diagnose, prescribe, or replace a clinical record system.
+
+### 🗺️ The service at a glance
+
+| 🔐 Identity                                | 👨‍⚕️ Doctors                             | 🧑‍🤝‍🧑 Patients                               | 📊 Insights                        | 🧰 Data tools                                              |
+| ------------------------------------------ | -------------------------------------- | ----------------------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| Sign-in, signed tokens, admin/viewer roles | Search, filters, profiles, assignments | Search, filters, update, reassign, delete | One range-aware analytics overview | Safe demo seeding, declared indexes, query-plan inspection |
+
+```text
+Browser / Next.js server  ━━━▶  Express API  ━━━▶  MongoDB
+       session + role          validate + authorize       records + indexes
+```
+
+**Permissions in one glance**
+
+| Role          | Read doctors, patients, analytics | Create or change records |
+| ------------- | :-------------------------------: | :----------------------: |
+| 👑 Admin      |                ✅                 |            ✅            |
+| 👀 Viewer     |                ✅                 |            —             |
+| 🚪 Signed out |   Public health and login only    |            —             |
+
+> [!IMPORTANT]
+> This repository contains a local demo-data seeder and sample login accounts for development. Use only synthetic/demo data with those accounts, and never use the demo credentials or `--force` against a production database.
+
 **Local API:** `http://localhost:4000/api/v1`  
 **Local Swagger UI:** `http://localhost:4000/api/docs`
 
