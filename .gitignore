@@ -2,8 +2,6 @@
 node_modules/
 
 # environment files (commit only the template)
-.env
-.env.*
 !.env.example
 
 # logs
@@ -18,8 +16,8 @@ coverage/
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/*
 !.vscode/extensions.json
 
 # deployment
 .vercel
+config.bat
