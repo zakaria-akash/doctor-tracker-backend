@@ -170,20 +170,14 @@ the database connection as up, along with uptime and a timestamp.
 
 ## 3. System Architecture
 
-The API is standalone. The diagram shows the intended production integration; the external frontend
+The API is standalone. The sequence below shows the intended production integration; the external frontend
 and hosting endpoint are not configured in this repository.
 
-```mermaid
-flowchart LR
-  Browser[Browser] --> BFF[Next.js BFF / server layer]
-  BFF -->|Bearer JWT| API[Express 5 API]
-  API --> MW[Security, CORS, JSON, logs]
-  MW --> Router["/api/v1 router"]
-  Router --> Services[Feature services]
-  Services --> Models[Mongoose models and indexes]
-  Models --> Mongo[(MongoDB)]
-  API --> Docs["/api/docs Swagger UI"]
-```
+1. The **browser or Next.js server** sends a request to the API with a Bearer token.
+2. **Express** applies security headers, the CORS allow-list, request limits, compression, and logging.
+3. The `/api/v1` router authenticates the request and sends validated input to a feature service.
+4. The service uses **Mongoose models and indexes** to read or update MongoDB.
+5. **Swagger UI** documents the API at `/api/docs`.
 
 ### Request lifecycle
 
@@ -353,31 +347,12 @@ for 60 seconds, and has its cache cleared after doctor or patient writes.
 
 ## Database Design & Indexes
 
-```mermaid
-erDiagram
-  USER ||--o{ DOCTOR : creates
-  USER ||--o{ PATIENT : creates
-  DOCTOR ||--o{ PATIENT : treats
+### How records relate
 
-  USER {
-    string email UK
-    string role
-    string passwordHash
-  }
-  DOCTOR {
-    string email UK
-    string specialization
-    string hospital
-    array searchTokens
-  }
-  PATIENT {
-    string condition
-    string status
-    date admissionDate
-    objectId doctor FK
-    array searchTokens
-  }
-```
+- **User → Doctors:** one account may create many doctor records. User email is unique; password hashes are never returned by the API.
+- **User → Patients:** one account may create many patient records.
+- **Doctor → Patients:** one doctor may be assigned many patients; each patient record points to its assigned doctor.
+- **Search support:** doctors and patients store normalized `searchTokens` used by the indexed prefix-search feature.
 
 The declared indexes live with the Mongoose schemas. Run `npm run db:indexes` after a schema/index
 change, especially in production where automatic index creation is disabled.
