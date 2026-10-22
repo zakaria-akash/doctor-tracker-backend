@@ -15,9 +15,9 @@
 ![Vitest](https://img.shields.io/badge/Vitest-5-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
 ![Hostinger VPS](https://img.shields.io/badge/Hosting-Hostinger_KVM_4-673DE6?style=for-the-badge&logo=hostinger&logoColor=white)
 ![Nginx](https://img.shields.io/badge/Nginx-reverse_proxy-009639?style=for-the-badge&logo=nginx&logoColor=white)
-![PM2](https://img.shields.io/badge/PM2-process_manager-2B037A?style=for-the-badge&logo=pm2&logoColor=white)
+![systemd](https://img.shields.io/badge/systemd-planned_service_manager-2B037A?style=for-the-badge&logo=linux&logoColor=white)
 
-📘 **Companion runbook:** [`D:\projects\doctor-tracker\RUNBOOK.md`](../doctor-tracker/RUNBOOK.md) — frontend, master plan, hosting & submission
+📘 **Companion runbook:** [Frontend RUNBOOK](https://github.com/zakaria-akash/doctor-tracker/blob/main/RUNBOOK.md) — frontend, master plan, hosting & submission
 
 | 🎯 [Mission](#mission) | 🏗️ [Architecture](#architecture) | 📜 [API contract](#contract) | 🛠️ [Build B0→B8](#b0) | 🚀 [Deploy](#b9) | 📝 [README](#b10) | 🧯 [Troubleshooting](#troubleshooting) |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -177,7 +177,7 @@ doctor-tracker-backend/
 │   ├── sync-indexes.js           # create/drop indexes to match the schemas
 │   └── explain.js                # prints the query plan for key queries (README evidence)
 ├── tests/                        # setup.js · auth.test.js · doctors.test.js
-├── .env.example · eslint.config.js · .prettierrc · vitest.config.js · ecosystem.config.cjs (PM2)
+├── .env.example · eslint.config.js · .prettierrc · vitest.config.js
 └── README.md
 ```
 
@@ -368,7 +368,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```dotenv
 # ── Server ───────────────────────────────────────────────
 NODE_ENV=development
-# 127.0.0.1 on the VPS, so only Nginx is reachable from the internet
+# Bind to the VPS loopback interface in production, so only Nginx can reach the API
 HOST=0.0.0.0
 PORT=4000
 LOG_LEVEL=debug
@@ -384,7 +384,7 @@ JWT_AUDIENCE=doctor-tracker-web
 BCRYPT_ROUNDS=10
 
 # ── HTTP — comma-separated browser origins allowed by CORS ──
-CORS_ORIGINS=http://localhost:3000
+CORS_ORIGINS=<FRONTEND_DEV_ORIGIN>
 
 # ── Analytics — timezone used to bucket dates on the dashboard ──
 APP_TIMEZONE=Asia/Dhaka
@@ -409,7 +409,7 @@ const EnvSchema = z.object({
   JWT_ISSUER: z.string().default('doctor-tracker-api'),
   JWT_AUDIENCE: z.string().default('doctor-tracker-web'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(8).max(14).default(10),
-  CORS_ORIGINS: z.string().default('http://localhost:3000'),
+  CORS_ORIGINS: z.string().min(1, 'CORS_ORIGINS is required'),
   APP_TIMEZONE: z.string().default('Asia/Dhaka'),
 });
 
@@ -658,7 +658,7 @@ import { connectDB, disconnectDB } from './config/db.js';
 
 await connectDB(); // top-level await (ESM): crash early if Atlas is unreachable
 
-// HOST=127.0.0.1 on the VPS → reachable only through Nginx
+// Bind to the VPS loopback interface in production → reachable only through Nginx
 const server = app.listen(env.PORT, env.HOST, () => {
   logger.info(`🚀 API ready on http://${env.HOST}:${env.PORT}/api/v1 · docs at /api/docs`);
 });
@@ -672,8 +672,8 @@ function shutdown(signal) {
   setTimeout(() => process.exit(1), 10_000).unref(); // hard stop if connections hang
 }
 
-process.on('SIGTERM', shutdown); // systemd / pm2 kill
-process.on('SIGINT', shutdown); // PM2's default signal on restart/reload
+process.on('SIGTERM', shutdown); // systemd sends this for a graceful stop
+process.on('SIGINT', shutdown); // local interactive stop
 process.on('unhandledRejection', (reason) => {
   logger.fatal({ reason }, 'Unhandled promise rejection');
   shutdown('unhandledRejection');
@@ -743,8 +743,8 @@ export default defineConfig([
 ### ✅ Definition of Done — B1
 
 - [ ] `npm run dev` → logs `MongoDB connected {"db":"doctor_tracker_dev"}` and `🚀 API ready…`
-- [ ] `curl http://localhost:4000/api/v1/health` → `{"success":true,"data":{"status":"ok","db":"up",…}}`
-- [ ] `curl.exe http://localhost:4000/api/v1/nope` → `401` (everything under `/api/v1` except login is protected) · `curl.exe -X POST http://localhost:4000/api/v1/auth/login -H "Content-Type: application/json" -d "{bad json"` → `400 BAD_REQUEST`
+- [ ] `GET /api/v1/health` at the origin printed by `npm run dev` → `{"success":true,"data":{"status":"ok","db":"up",…}}`
+- [ ] `GET /api/v1/nope` at that origin → `401`; malformed JSON sent to `POST /api/v1/auth/login` → `400 BAD_REQUEST`.
 - [ ] Deleting `JWT_SECRET` from `.env` → boot fails with a readable Zod message
 - [ ] `npm run lint` is clean
 
@@ -1363,15 +1363,16 @@ authRouter.get('/me', requireAuth, ctrl.me);
 ```powershell
 # PowerShell smoke test (local)
 $body  = @{ email = "admin@doctortracker.test"; password = "Admin@12345" } | ConvertTo-Json
-$login = Invoke-RestMethod -Method Post -Uri "http://localhost:4000/api/v1/auth/login" -ContentType "application/json" -Body $body
+$apiBase = Read-Host "Paste the API origin printed by npm run dev (without trailing slash)"
+$login = Invoke-RestMethod -Method Post -Uri "$apiBase/api/v1/auth/login" -ContentType "application/json" -Body $body
 $auth  = @{ Authorization = "Bearer $($login.data.token)" }
-Invoke-RestMethod -Uri "http://localhost:4000/api/v1/auth/me" -Headers $auth
+Invoke-RestMethod -Uri "$apiBase/api/v1/auth/me" -Headers $auth
 ```
 
 - [ ] Correct credentials → token + user · wrong password → `401 "Invalid email or password"`
 - [ ] 11th wrong attempt for the same email within 15 min → `429`
 - [ ] No token → `401` · tampered token → `401` · viewer token on a write → `403`
-- [ ] **Deploy the walking skeleton to the VPS now** ([B9](#b9) steps 12.2–12.7) — health + login only
+- [ ] **Before any VPS deployment,** review the [shared-VPS deployment plan](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md) and obtain the owner's explicit permission. Keep all existing sites untouched.
 
 ---
 
@@ -1402,7 +1403,7 @@ export function buildDateRange(field, from, to) {
 ```
 
 ```js
-// src/utils/cache.js — tiny in-memory TTL cache (one PM2 process → effective; add Redis before scaling out)
+// src/utils/cache.js — tiny in-memory TTL cache (one API process → effective; add Redis before scaling out)
 export function createTtlCache(ttlMs = 60_000, maxEntries = 100) {
   const store = new Map();
   return {
@@ -2024,9 +2025,9 @@ metaRouter.get('/options', async (_req, res) => {
 | ☐ | `helmet` headers · CORS allow-list · JSON body limit 100 kb · `x-powered-by` off | `app.js` |
 | ☐ | No stack traces in production responses · auth headers redacted from logs | `error-handler.js`, `logger.js` |
 | ☐ | Secrets only in env vars · `.env` git-ignored · `.env.example` documents everything | repo |
-| ☐ | MongoDB bound to `127.0.0.1` with authorization on · app user limited to `readWrite` on one database | VPS ([B9](#b9)) |
+| ☐ | MongoDB bound to the loopback interface with authorization on · app user limited to `readWrite` on one database | VPS ([B9](#b9)) |
 | ☐ | UFW allows only 22/80/443 · SSH key-only, no root login · fail2ban · unattended security upgrades | VPS ([B9](#b9)) |
-| ☐ | HTTPS everywhere (Let's Encrypt, auto-renew) · API and Next.js bound to `127.0.0.1` behind Nginx | VPS ([B9](#b9)) |
+| ☐ | HTTPS everywhere (Let's Encrypt, auto-renew) · API and Next.js bound to private loopback listeners behind Nginx | VPS ([B9](#b9)) |
 
 > [!WARNING]
 > Don't add `express-mongo-sanitize` or other Express-4-era middleware that **assigns** `req.query`. In Express 5 `req.query` is a getter, so they crash with *"Cannot set property query"*. The protections above already cover the threat.
@@ -2247,311 +2248,40 @@ await mongoose.disconnect();
 
 <a id="b9"></a>
 
-## 🚀 12. Phase B9 — Deploy to the Hostinger KVM 4 VPS + migrate MongoDB
+## 🚀 12. Phase B9 — Deployment on the existing shared VPS
 
-> ⏱️ **~2 h the first time** (baseline 45 min · MongoDB 30 min · API + Nginx + TLS 30 min · data migration 15 min) · 🎯 **Outcome:** both apps and the database run on **your own server**: Nginx + HTTPS in front, Next.js and Express under PM2, and a self-hosted, authenticated **MongoDB 8** holding the data migrated from Atlas. No free-tier sleep and no third-party database.
+> [!IMPORTANT]
+> This VPS already hosts other websites. The old fresh-server, PM2, and in-place migration
+> examples were removed because they are unsafe for this host. **No deployment is authorized by
+> this runbook.** Use the [VPS deployment and migration plan](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md)
+> as the single source of truth, and wait for explicit permission before changing the server.
 
-### 12.1 Target topology
+**Planned public addresses (not live yet):** web `https://dt.58def4e4.nip.io` · API
+`https://api.58def4e4.nip.io`. These names do not use any domain belonging to an existing VPS site.
 
-```mermaid
-flowchart LR
-  user(["Reviewer's browser"]):::actor
-  subgraph vps["Hostinger KVM 4 · Ubuntu 24.04 · 4 vCPU · 16 GB RAM · 200 GB NVMe"]
-    ufw{{"UFW firewall<br/>22 · 80 · 443 only"}}:::sec
-    nginx["Nginx :443<br/>Let's Encrypt TLS"]:::edge
-    web["Next.js 16 · PM2<br/>127.0.0.1:3000"]:::fe
-    api["Express 5 · PM2<br/>127.0.0.1:4000"]:::be
-    mongo[("MongoDB 8.0<br/>127.0.0.1:27017 · auth on")]:::db
-    backup[["Nightly mongodump<br/>/var/backups/mongo · 7 days"]]:::ops
-  end
-  user -->|"https://app.yourdomain.com"| ufw
-  user -->|"https://api.yourdomain.com"| ufw
-  ufw --> nginx
-  nginx -->|"app."| web
-  nginx -->|"api."| api
-  web -->|"REST over loopback + Bearer"| api
-  api -->|Mongoose| mongo
-  mongo -.-> backup
+### Safe deployment gates
 
-  classDef actor fill:#FEF3C7,stroke:#D97706,color:#78350F
-  classDef sec fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D
-  classDef edge fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E
-  classDef fe fill:#EDE9FE,stroke:#7C3AED,color:#3B0764
-  classDef be fill:#DCFCE7,stroke:#16A34A,color:#14532D
-  classDef db fill:#FCE7F3,stroke:#DB2777,color:#831843
-  classDef ops fill:#F1F5F9,stroke:#475569,color:#0F172A
-```
-
-| Port | Bound to | Reachable from the internet? |
-| --- | --- | --- |
-| 22 (SSH) · 80 · 443 (Nginx) | `0.0.0.0` | ✅ yes (UFW allows only these) |
-| 3000 (Next.js) · 4000 (Express) | `127.0.0.1` | ❌ no, only through Nginx |
-| 27017 (MongoDB) | `127.0.0.1` | ❌ no, use an SSH tunnel from your laptop |
-
-### 12.2 Prerequisites (hPanel + DNS)
-
-| Step | Action |
-| --- | --- |
-| 1 | hPanel → **VPS → Operating System → Ubuntu 24.04 LTS** (plain OS, no control panel) |
-| 2 | Use the data centre closest to your reviewers (chosen when the VPS is set up) |
-| 3 | Add your **SSH public key** in hPanel and note the VPS **IPv4** |
-| 4 | DNS (Hostinger DNS zone or your registrar): `A  app → <VPS-IP>` and `A  api → <VPS-IP>` (TTL 300) |
-| 5 | Before Certbot: `nslookup app.yourdomain.com` and `nslookup api.yourdomain.com` must return the VPS IP |
-
-> [!TIP]
-> No SSH key yet? On Windows: `ssh-keygen -t ed25519 -C "doctor-tracker-vps"`, then paste the contents of `~/.ssh/id_ed25519.pub` into hPanel.
-
-### 12.3 Server baseline (once)
-
-```bash
-# ── as root (first login: ssh root@<VPS-IP>) ──
-apt update && apt -y upgrade
-timedatectl set-timezone Asia/Dhaka
-
-# an admin user that will own the apps
-adduser deploy
-usermod -aG sudo deploy
-rsync --archive --chown=deploy:deploy ~/.ssh /home/deploy
-
-# SSH: keys only, no root login (this drop-in is read before the main config, so it wins)
-printf "PasswordAuthentication no\nPermitRootLogin no\n" > /etc/ssh/sshd_config.d/00-hardening.conf
-sshd -t && systemctl restart ssh
-# ⚠️ open a NEW terminal and confirm `ssh deploy@<VPS-IP>` works BEFORE closing this one
-
-# firewall, brute-force protection, automatic security updates
-apt -y install ufw fail2ban unattended-upgrades
-ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp
-ufw --force enable
-
-# Node.js 24 LTS + build tools + git
-curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-apt -y install nodejs build-essential git
-
-# PM2, Nginx, Certbot
-npm install -g pm2
-apt -y install nginx certbot python3-certbot-nginx
-systemctl enable --now nginx
-
-# app directory owned by the deploy user
-mkdir -p /var/www && chown deploy:deploy /var/www
-```
-
-```bash
-# ── as deploy ──
-pm2 install pm2-logrotate                          # rotate logs automatically
-pm2 startup systemd -u deploy --hp /home/deploy    # prints one sudo command; run it once
-```
-
-### 12.4 MongoDB 8.0 on the VPS (official packages)
-
-```bash
-sudo apt-get install -y gnupg curl
-curl -fsSL https://pgp.mongodb.com/server-8.0.asc | \
-  sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
-echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | \
-  sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
-sudo apt-get update && sudo apt-get install -y mongodb-org   # includes mongosh + mongodump/mongorestore
-sudo systemctl enable --now mongod
-mongosh --quiet --eval 'db.runCommand({ ping: 1 })'           # { ok: 1 }
-```
-
-**Create the users** (authentication is still off at this point, so `mongosh` connects freely over localhost):
-
-```js
-// mongosh
-use admin
-db.createUser({ user: "admin", pwd: passwordPrompt(), roles: ["root"] })
-
-use doctor_tracker
-db.createUser({ user: "dt_app", pwd: passwordPrompt(), roles: [{ role: "readWrite", db: "doctor_tracker" }] })
-exit
-```
-
-**Turn on authorization** (keep the default `bindIp: 127.0.0.1`, so MongoDB is never public):
-
-```bash
-sudo sed -i 's/^#security:/security:\n  authorization: enabled/' /etc/mongod.conf
-grep -A1 '^security:' /etc/mongod.conf      # → authorization: enabled
-grep -A2 '^net:' /etc/mongod.conf           # → bindIp: 127.0.0.1
-sudo systemctl restart mongod
-mongosh "mongodb://dt_app@127.0.0.1:27017/doctor_tracker?authSource=doctor_tracker" \
-  --eval 'db.runCommand({ connectionStatus: 1 }).authInfo.authenticatedUsers'   # prompts for the password
-```
-
-> [!TIP]
-> - **Alphanumeric passwords** avoid URL-encoding problems in connection strings.
-> - **Compass from your laptop:** open an SSH tunnel with `ssh -N -L 27018:127.0.0.1:27017 deploy@<VPS-IP>`, then connect to `mongodb://admin@localhost:27018/?authSource=admin`. Port 27017 is never opened in the firewall.
-
-### 12.5 Migrate the data from Atlas → VPS
-
-```bash
-mkdir -p ~/migration && cd ~/migration
-
-# 1) Dump from Atlas (its Network Access list must include the VPS IP; see B0)
-mongodump --uri="mongodb+srv://dt_app:<atlas-password>@dt-cluster.xxxxx.mongodb.net/doctor_tracker" \
-  --archive=atlas-doctor_tracker.archive.gz --gzip
-
-# 2) Restore into the local, authenticated MongoDB (collections AND indexes)
-mongorestore --uri="mongodb://dt_app:<vps-password>@127.0.0.1:27017/?authSource=doctor_tracker" \
-  --archive=atlas-doctor_tracker.archive.gz --gzip --drop --nsInclude="doctor_tracker.*"
-#    migrating the dev DB instead? add: --nsFrom="doctor_tracker_dev.*" --nsTo="doctor_tracker.*"
-
-# 3) Verify: run the same command against Atlas and compare the numbers
-mongosh "mongodb://dt_app@127.0.0.1:27017/doctor_tracker?authSource=doctor_tracker" --quiet --eval '
-  printjson({ users: db.users.countDocuments(), doctors: db.doctors.countDocuments(), patients: db.patients.countDocuments() });
-  printjson(db.patients.getIndexes().map((i) => i.name));'
-```
-
-| After the restore | Why |
-| --- | --- |
-| Run `npm run db:indexes` once the API is deployed (12.6) | Guarantees exactly the indexes the schemas declare (`autoIndex` is off in production) |
-| Keep the Atlas cluster for ~1 week, then pause or terminate it | Rollback safety net |
-| *Alternative to migrating:* seed fresh data through the tunnel from your laptop | `$env:MONGODB_URI="mongodb://dt_app:<pw>@127.0.0.1:27018/doctor_tracker?authSource=doctor_tracker"; npm run seed -- --force` |
-
-### 12.6 Deploy the API under PM2
-
-```bash
-cd /var/www && git clone https://github.com/<you>/doctor-tracker-backend.git && cd doctor-tracker-backend
-npm ci --omit=dev
-nano .env && chmod 600 .env        # production values below
-```
-
-```dotenv
-NODE_ENV=production
-HOST=127.0.0.1
-PORT=4000
-LOG_LEVEL=info
-MONGODB_URI=mongodb://dt_app:<vps-password>@127.0.0.1:27017/doctor_tracker?authSource=doctor_tracker
-JWT_SECRET=<the shared secret, identical to the frontend>
-JWT_EXPIRES_IN=8h
-JWT_ISSUER=doctor-tracker-api
-JWT_AUDIENCE=doctor-tracker-web
-BCRYPT_ROUNDS=12
-CORS_ORIGINS=https://app.yourdomain.com
-APP_TIMEZONE=Asia/Dhaka
-```
-
-<details>
-<summary>📄 <b>ecosystem.config.cjs</b> (commit it in the backend repo root)</summary>
-
-```js
-// PM2 loads this file with require(), hence .cjs (the package itself is ESM)
-module.exports = {
-  apps: [
-    {
-      name: 'doctor-tracker-api',
-      cwd: __dirname,
-      script: 'src/server.js',
-      node_args: '--env-file-if-exists=.env',
-      instances: 1, // the in-memory cache and rate limits assume ONE process (add Redis before scaling out)
-      exec_mode: 'fork',
-      max_memory_restart: '512M',
-      kill_timeout: 10000, // let the graceful shutdown in server.js finish
-      time: true,
-    },
-  ],
-};
-```
-
-</details>
-
-```bash
-pm2 start ecosystem.config.cjs && pm2 save
-npm run db:indexes                                  # sync indexes against the production DB
-curl -s http://127.0.0.1:4000/api/v1/health         # {"success":true,"data":{"status":"ok","db":"up",…}}
-```
-
-### 12.7 Nginx + HTTPS for `api.yourdomain.com`
-
-<details>
-<summary>📄 <b>/etc/nginx/sites-available/doctor-tracker-api</b></summary>
-
-```nginx
-server {
-    listen 80;
-    listen [::]:80;
-    server_name api.yourdomain.com;
-
-    client_max_body_size 1m;   # the API itself caps JSON bodies at 100 kb
-
-    location / {
-        proxy_pass http://127.0.0.1:4000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 60s;
-    }
-}
-```
-
-</details>
-
-```bash
-sudo ln -s /etc/nginx/sites-available/doctor-tracker-api /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d api.yourdomain.com --redirect -m you@example.com --agree-tos -n
-```
-
-`app.set('trust proxy', 1)` in `src/app.js` matches this setup exactly: Nginx is the one proxy hop, so `req.ip` and `req.protocol` are correct.
-
-### 12.8 Backups (nightly, 7-day retention)
-
-```bash
-# credentials file read by mongodump/mongorestore (keeps the password out of `ps` output)
-sudo install -m 600 /dev/null /root/.mongodump.yaml
-echo "uri: mongodb://dt_app:<vps-password>@127.0.0.1:27017/doctor_tracker?authSource=doctor_tracker" | sudo tee /root/.mongodump.yaml >/dev/null
-
-sudo tee /usr/local/bin/backup-mongo.sh >/dev/null <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-DIR=/var/backups/mongo
-mkdir -p "$DIR"
-mongodump --config=/root/.mongodump.yaml --archive="$DIR/doctor_tracker-$(date +%F_%H%M).archive.gz" --gzip --quiet
-find "$DIR" -name 'doctor_tracker-*.archive.gz' -mtime +7 -delete
-EOF
-sudo chmod 700 /usr/local/bin/backup-mongo.sh
-sudo /usr/local/bin/backup-mongo.sh && sudo ls -lh /var/backups/mongo     # test run
-echo "30 2 * * * root /usr/local/bin/backup-mongo.sh >> /var/log/mongo-backup.log 2>&1" | sudo tee /etc/cron.d/mongo-backup
-```
-
-| Also | How |
-| --- | --- |
-| Restore drill | `sudo mongorestore --config=/root/.mongodump.yaml --archive=/var/backups/mongo/<file> --gzip --drop` |
-| Off-server copy | Download one archive a week to your laptop with `scp` |
-| Before risky changes | hPanel → VPS → **Snapshots** → create a snapshot |
-| Uptime monitoring | A free monitor (e.g. UptimeRobot) on `https://api.yourdomain.com/api/v1/health` and `https://app.yourdomain.com/login` |
-
-### 12.9 Redeploys
-
-```bash
-cd /var/www/doctor-tracker-backend \
-  && git pull --ff-only && npm ci --omit=dev && npm run db:indexes \
-  && pm2 reload doctor-tracker-api --update-env
-```
-
-### 12.10 Smoke test (from your laptop, PowerShell)
-
-```powershell
-Invoke-RestMethod https://api.yourdomain.com/api/v1/health
-$body  = @{ email = "admin@doctortracker.test"; password = "Admin@12345" } | ConvertTo-Json
-$login = Invoke-RestMethod -Method Post -Uri "https://api.yourdomain.com/api/v1/auth/login" -ContentType "application/json" -Body $body
-Invoke-RestMethod -Uri "https://api.yourdomain.com/api/v1/doctors?limit=3" -Headers @{ Authorization = "Bearer $($login.data.token)" }
-```
-
-> [!NOTE]
-> **Deadline fallback.** If the VPS isn't ready in time, the same code deploys unchanged to Render's free tier (build `npm ci --omit=dev`, start `npm start`, health check `/api/v1/health`, `HOST=0.0.0.0`). Submit that, then move to the VPS and update the links.
+1. Capture a read-only baseline of every current website, Nginx configuration, service, port,
+   database, and backup. Recheck the VPS snapshot and available capacity.
+2. Stage the new frontend and backend under a dedicated account, directory tree, systemd units,
+   Nginx server names, and database. Keep all app and database listeners private behind Nginx.
+3. Make a verified BSON backup of Atlas `doctor_tracker_dev`, restore into an isolated staging
+   database, validate counts, indexes, references, and authentication, then schedule a brief
+   write freeze for the final copy. Never run the destructive demo seeder on production data.
+4. Test both `nip.io` DNS names externally and obtain HTTPS certificates. Preserve all existing
+   virtual hosts, certificates, services, databases, and backup jobs.
+5. Check the web app, API health and docs, login, doctor/patient workflows, analytics, data
+   counts, backups, and **every pre-existing website** before declaring a cutover successful.
+6. If any existing site regresses, stop and follow the scoped rollback in the deployment plan;
+   do not restore the whole VPS snapshot casually because that would roll back unrelated sites.
 
 ### ✅ Definition of Done — B9
 
-- [ ] `https://api.yourdomain.com/api/v1/health` → `200` with a valid certificate · `http://` redirects to `https://`
-- [ ] `ss -tlnp` shows 4000 and 27017 on `127.0.0.1` only · `sudo ufw status` lists just 22 / 80 / 443
-- [ ] `mongosh` without credentials can't read `doctor_tracker` (authorization enforced)
-- [ ] Migrated counts match Atlas · `npm run db:indexes` lists every index · login works
-- [ ] `/api/docs` loads over HTTPS
-- [ ] `sudo reboot` → `pm2 status` shows the API online again
-- [ ] A backup archive exists in `/var/backups/mongo` and the restore drill works
+- [ ] `https://dt.58def4e4.nip.io` and `https://api.58def4e4.nip.io/api/v1/health`
+      are reachable with valid HTTPS from outside the VPS.
+- [ ] Migrated collections, indexes, references, auth, and key user journeys are verified.
+- [ ] Every existing website matches its baseline and its configuration remains unchanged.
+- [ ] Independent backup and restore verification is complete.
 
 ---
 
@@ -2564,15 +2294,15 @@ Same five mandatory sections, same order as the PDF, plus API-specific extras.
 ````markdown
 # 🩺 Doctor Tracker — REST API
 
-<badges> · **Base URL:** https://api.yourdomain.com/api/v1 · **Docs:** https://api.yourdomain.com/api/docs
-> 🖥️ Self-hosted on a Hostinger KVM 4 VPS · Nginx + Let's Encrypt · PM2 · MongoDB 8 (authentication, nightly backups).
+<badges> · **Planned base URL:** https://api.58def4e4.nip.io/api/v1 · **Docs:** https://api.58def4e4.nip.io/api/docs
+> 🖥️ Planned for the shared Hostinger KVM 4 VPS · Nginx + Let's Encrypt · systemd · MongoDB 8 (authentication, verified backups).
 
 ## 1. Description
 <one paragraph: secure, validated, index-optimized REST API powering the Doctor Tracker admin portal>
 
 ## 2. Setup Guide
 Prerequisites (Node 24, a MongoDB Atlas URI or local MongoDB) → `npm ci` → `cp .env.example .env` → fill values →
-`npm run seed` → `npm run dev` → open http://localhost:4000/api/docs. Table of scripts (dev, start, seed, db:indexes, lint, test).
+`npm run seed` on a disposable development database → `npm run dev` → open `/api/docs` at the origin printed by the server. Table of scripts (dev, start, seed, db:indexes, lint, test).
 
 ## 3. System Architecture
 <mermaid: Next.js BFF → Express middleware chain → services → MongoDB> + request lifecycle bullets + folder tree.
@@ -2622,22 +2352,22 @@ ER diagram · index ↔ query table (RUNBOOK §B2.5)
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `❌ Invalid environment variables` on boot | Missing or too-short env var | Compare with `.env.example` · `JWT_SECRET` ≥ 32 chars |
-| `MongoServerSelectionError` / timeout | IP not allowed, wrong host, or special characters in the password | Atlas Network Access `0.0.0.0/0` · URL-encode the password · re-copy the SRV string |
+| `MongoServerSelectionError` / timeout | IP not allowed, wrong host, or special characters in the password | Allow-list only the connecting host's IP in Atlas · URL-encode the password · re-copy the SRV string |
 | `bad auth : authentication failed` | Wrong DB user/password | Reset it in Atlas → Database Access |
 | `TypeError: next is not a function` in a hook | Mongoose 9 removed `next()` from pre-hooks | `schema.pre('save', async function () { … })` |
 | `Cannot set property query of #<IncomingMessage>` | Express-4-era middleware writing `req.query` | Remove it; read validated data from `req.valid` |
 | `PATCH` resets `admissionDate` / empty PATCH passes | Zod 4 keeps defaults inside `.partial()` | Defaults only on the create schema ([B6](#b6)) |
 | Valid-looking email rejected | `z.email().trim()` validates before trimming | `z.string().trim().toLowerCase().pipe(z.email())` |
-| Duplicate email accepted in production | Unique index not built (`autoIndex` is off in prod) | `npm run db:indexes` against the prod DB |
+| Duplicate email accepted in production | Unique index not built (`autoIndex` is off in prod) | Inspect the index plan and existing duplicates before synchronizing production indexes |
 | Every user hits `429` at once | IP-keyed limiter behind the BFF | Key by email/user (already done) + `trust proxy` 1 |
 | `ERR_ERL_KEY_GEN_IPV6` warning | Custom `keyGenerator` using `req.ip` directly | Wrap it: `ipKeyGenerator(req.ip)` |
 | Dashboard day buckets off by one | Bucketing in UTC | `APP_TIMEZONE` drives `$dateToString` and the period keys |
-| Search finds nothing for seeded data | Tokens missing (`insertMany` skips hooks) | Seed builds tokens explicitly · rerun `npm run seed` |
-| `502 Bad Gateway` on `api.yourdomain.com` | API not running on `127.0.0.1:4000` | `pm2 status` · `pm2 logs doctor-tracker-api` · `ss -tlnp \| grep 4000` |
+| Search finds nothing for seeded data | Tokens missing (`insertMany` skips hooks) | Verify token generation and repair affected records; do not reseed production data |
+| `502 Bad Gateway` on `api.58def4e4.nip.io` | API service stopped or its private listener is unavailable | Check the dedicated systemd service, journal, and listener; leave other sites untouched |
 | `Authentication failed` against the VPS MongoDB | Wrong `authSource`, or a password with special characters | `…/doctor_tracker?authSource=doctor_tracker` · use an alphanumeric password or URL-encode it |
-| Certbot fails | DNS not pointing at the VPS yet, or port 80 closed | `nslookup api.yourdomain.com` · `sudo ufw status` (80 and 443 open) |
-| `mongorestore` duplicate-key errors | Restoring into a non-empty database | Add `--drop`, then run `npm run db:indexes` |
-| API gone after a reboot | PM2 startup hook missing | `pm2 startup systemd -u deploy --hp /home/deploy` → run the printed command → `pm2 save` |
+| Certbot fails | `nip.io` DNS is not resolving to the VPS yet, or port 80 is unavailable | Check `api.58def4e4.nip.io` from external resolvers and inspect the existing Nginx/ACME route without disrupting other sites |
+| `mongorestore` duplicate-key errors | Target collection already has data | Stop and inspect the target; restore into a new empty staging database after review, never use `--drop` blindly |
+| API gone after a reboot | Dedicated systemd unit did not restart | Inspect the unit status and journal, then follow the shared-VPS deployment plan |
 | `EALLOWSCRIPTS` running `npx <tool>` | User-level `allow-scripts` in `~/.npmrc` leaks through npx | Run `./node_modules/.bin/<tool>` directly |
 
 ---
@@ -2651,7 +2381,7 @@ ER diagram · index ↔ query table (RUNBOOK §B2.5)
 | Script | Command | Purpose |
 | --- | --- | --- |
 | `npm run dev` | `node --watch --env-file-if-exists=.env src/server.js` | Dev server with auto-restart |
-| `npm start` | `node --env-file-if-exists=.env src/server.js` | Production start (PM2 runs the same entry via `ecosystem.config.cjs`) |
+| `npm start` | `node --env-file-if-exists=.env src/server.js` | Production entry point for the planned dedicated systemd unit |
 | `npm run seed` | `node --env-file-if-exists=.env scripts/seed.js` | Reset + seed (`-- --force` for non-dev DBs) |
 | `npm run db:indexes` | `node --env-file-if-exists=.env scripts/sync-indexes.js` | Create/drop indexes to match the schemas |
 | `npm run lint` · `lint:fix` | `eslint .` | Static analysis |
@@ -2663,14 +2393,14 @@ ER diagram · index ↔ query table (RUNBOOK §B2.5)
 | Variable | Default | Required in prod | Notes |
 | --- | --- | --- | --- |
 | `NODE_ENV` | `development` | ✅ `production` | Disables pretty logs, hides stacks, turns off `autoIndex` |
-| `HOST` | `0.0.0.0` | ✅ `127.0.0.1` | Only Nginx should reach the API |
+| `HOST` | `0.0.0.0` | ✅ private loopback binding | Only Nginx should reach the API |
 | `PORT` | `4000` | — | Nginx proxies to it |
-| `MONGODB_URI` | — | ✅ | Dev: Atlas `…/doctor_tracker_dev` · VPS: `mongodb://dt_app:…@127.0.0.1:27017/doctor_tracker?authSource=doctor_tracker` |
+| `MONGODB_URI` | — | ✅ | Dev: Atlas `…/doctor_tracker_dev` · VPS: authenticated private MongoDB URI for the separate `doctor_tracker` database |
 | `JWT_SECRET` | — | ✅ | ≥ 32 chars · identical in the frontend |
 | `JWT_EXPIRES_IN` | `8h` | — | jose duration string |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | `doctor-tracker-api` / `doctor-tracker-web` | — | Must match the frontend |
 | `BCRYPT_ROUNDS` | `10` | — | 8–14 · use 12 on the VPS |
-| `CORS_ORIGINS` | `http://localhost:3000` | ✅ `https://app.yourdomain.com` | Comma-separated |
+| `CORS_ORIGINS` | frontend development origin | ✅ `https://dt.58def4e4.nip.io` | Comma-separated |
 | `APP_TIMEZONE` | `Asia/Dhaka` | — | IANA timezone for dashboard buckets |
 | `LOG_LEVEL` | `info` | — | `debug` locally |
 

@@ -44,12 +44,15 @@ Browser / Next.js server  ━━━▶  Express API  ━━━▶  MongoDB
 > [!IMPORTANT]
 > This repository contains a local demo-data seeder and sample login accounts for development. Use only synthetic/demo data with those accounts, and never use the demo credentials or `--force` against a production database.
 
-**Local API:** `http://localhost:4000/api/v1`  
-**Local Swagger UI:** `http://localhost:4000/api/docs`
+**Development API:** append `/api/v1` to the origin printed by `npm run dev`.
 
-No public deployment URL, screenshots, or query-plan capture is committed yet. The deployment
-and evidence sections below are intentionally marked as planned or pending rather than claiming
-external work that has not been verified.
+**Development Swagger UI:** append `/api/docs` to that same origin.
+
+**Planned public API:** `https://api.58def4e4.nip.io` (not live until deployment and HTTPS checks pass).
+
+The planned public hostname is documented, but no live deployment, screenshots, or query-plan
+capture has been verified yet. The deployment and evidence sections below remain marked as
+planned or pending rather than claiming external work that has not been verified.
 
 ## 1. Description
 
@@ -103,7 +106,7 @@ The validated settings are:
 | Variable         | Development default     | Notes                                                          |
 | ---------------- | ----------------------- | -------------------------------------------------------------- |
 | `NODE_ENV`       | `development`           | Accepted values: `development`, `test`, `production`.          |
-| `HOST`           | `0.0.0.0`               | Use `127.0.0.1` behind Nginx on a VPS.                         |
+| `HOST`           | `0.0.0.0`               | Bind only to the VPS loopback interface behind Nginx.          |
 | `PORT`           | `4000`                  | HTTP listener port.                                            |
 | `LOG_LEVEL`      | `info`                  | Pino level; the example uses `debug`.                          |
 | `MONGODB_URI`    | —                       | Required. Use a distinct database name per environment.        |
@@ -112,7 +115,7 @@ The validated settings are:
 | `JWT_ISSUER`     | `doctor-tracker-api`    | Must match JWT verification settings.                          |
 | `JWT_AUDIENCE`   | `doctor-tracker-web`    | Must match JWT verification settings.                          |
 | `BCRYPT_ROUNDS`  | `10`                    | Allowed range: 8–14; use 12 on the planned VPS.                |
-| `CORS_ORIGINS`   | `http://localhost:3000` | Comma-separated browser origin allow-list.                     |
+| `CORS_ORIGINS`   | Frontend dev origin     | Comma-separated browser origin allow-list; set it explicitly.  |
 | `APP_TIMEZONE`   | `Asia/Dhaka`            | IANA zone used for analytics buckets.                          |
 
 Node's built-in `--env-file-if-exists` option loads `.env`; this project intentionally does not
@@ -146,7 +149,7 @@ npm run dev
 Then confirm the liveness endpoint:
 
 ```bash
-curl http://localhost:4000/api/v1/health
+curl "<API_ORIGIN_FROM_SERVER_OUTPUT>/api/v1/health"
 ```
 
 The server connects to MongoDB before listening. `GET /api/v1/health` reports whether Mongoose sees
@@ -426,20 +429,22 @@ as those contracts evolve.
 No deployment has been completed or linked from this repository. The planned production topology is:
 
 ```text
-Internet → Nginx with TLS → Express on 127.0.0.1:4000 → MongoDB on 127.0.0.1:27017
+Internet → Nginx with TLS → isolated Express service → authenticated MongoDB
 ```
 
-The deployment runbook targets a Hostinger KVM VPS with Nginx, Let's Encrypt, PM2, MongoDB 8
-authentication, and nightly `mongodump` backups. Before publishing, set `NODE_ENV=production`,
-`HOST=127.0.0.1`, a production database URI, a 32+ character shared JWT secret, `BCRYPT_ROUNDS=12`,
-and the real HTTPS frontend origin in `CORS_ORIGINS`.
+The [VPS deployment and migration plan](VPS_DEPLOYMENT_AND_MIGRATION_PLAN.md) is the source of truth
+for the shared Hostinger VPS. It proposes separate systemd services, dedicated Nginx hosts at
+`https://dt.58def4e4.nip.io` and `https://api.58def4e4.nip.io`, a separate authenticated database,
+and verified backups. Before publishing, set `NODE_ENV=production`, bind `HOST` to the VPS loopback
+interface, configure a production database URI, a new 32+ character shared JWT secret,
+`BCRYPT_ROUNDS=12`, and the planned HTTPS frontend origin in `CORS_ORIGINS`.
 
 After deployment, validate the following rather than relying on this README as evidence:
 
 1. Nginx proxies HTTPS requests to the local API and `/api/v1/health` returns `200`.
 2. MongoDB has authorization enabled and is not exposed publicly.
-3. `npm run db:indexes` reports the expected indexes against the production database.
-4. PM2 restarts the service after a reboot and graceful shutdown disconnects Mongoose.
+3. Review index changes before any production synchronization; confirm the expected indexes.
+4. systemd restarts the service after a reboot and graceful shutdown disconnects Mongoose.
 5. A backup and restore drill have succeeded.
 
 ## Assumptions
