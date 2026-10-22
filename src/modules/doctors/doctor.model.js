@@ -4,6 +4,7 @@ import { SPECIALIZATIONS } from '../../constants/enums.js';
 import { toJSONOptions } from '../../utils/mongoose-json.js';
 import { buildSearchTokens } from '../../utils/search.js';
 
+// Store a normalized doctor profile, audit its creator, and keep search tokens private.
 const doctorSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 80 },
@@ -24,9 +25,11 @@ const doctorSchema = new mongoose.Schema(
   { timestamps: true, toJSON: toJSONOptions },
 );
 
+// Share token generation with the seed script, which inserts without save hooks.
 export const doctorSearchTokens = (doctor) =>
   buildSearchTokens(doctor.name, doctor.specialization, doctor.hospital, doctor.email);
 
+// Rebuild the indexed prefixes only when searchable fields have actually changed.
 doctorSchema.pre('save', async function updateSearchTokens() {
   if (
     this.isNew ||
@@ -36,6 +39,7 @@ doctorSchema.pre('save', async function updateSearchTokens() {
   }
 });
 
+// Support the common list filters, stable sorts, and indexed prefix searches.
 doctorSchema.index({ createdAt: -1, _id: -1 });
 doctorSchema.index({ specialization: 1, createdAt: -1 });
 doctorSchema.index({ hospital: 1, createdAt: -1 });

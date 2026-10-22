@@ -247,7 +247,7 @@ List responses add pagination metadata:
     "page": 1,
     "limit": 10,
     "total": 0,
-    "totalPages": 0,
+    "totalPages": 1,
     "hasNextPage": false,
     "hasPrevPage": false
   }
@@ -291,7 +291,9 @@ Error responses have a stable envelope:
 
 Doctor list filters include `search`, `specialization`, `hospital`, `from`, `to`, and `sort`.
 Patient lists additionally accept `condition`, `status`, `gender`, `doctor`, `minAge`, and `maxAge`.
-The nested patient route fixes the doctor to `:id` rather than accepting a conflicting doctor query.
+The nested patient route uses the `:id` in its URL and ignores any `doctor` query parameter.
+Updating a patient uses only the supplied fields; clearing an optional phone, email, or notes field
+uses an empty string or `null`. Removing a patient permanently deletes their record.
 Analytics uses the clinic timezone, fills missing day/month buckets with zeroes, caches an overview
 for 60 seconds, and has its cache cleared after doctor or patient writes.
 

@@ -7,6 +7,7 @@ import { serialize } from '../../utils/serialize.js';
 import { Doctor } from '../doctors/doctor.model.js';
 import { Patient } from './patient.model.js';
 
+// Include the id in every sort so pagination remains stable when values are equal.
 const SORTS = {
   newest: { admissionDate: -1, _id: -1 },
   oldest: { admissionDate: 1, _id: 1 },
@@ -16,10 +17,12 @@ const SORTS = {
   age_desc: { age: -1, _id: -1 },
 };
 
+// Return only frontend-facing patient data and a small populated doctor summary.
 const FIELDS =
   'name age gender phone email condition status admissionDate notes doctor createdAt updatedAt';
 const DOCTOR_FIELDS = 'name specialization';
 
+// Combine independent filters into one MongoDB query; age 0 is a valid bound.
 function buildPatientFilter({
   search,
   condition,
@@ -47,6 +50,7 @@ function buildPatientFilter({
   };
 }
 
+// Fetch one page and its total concurrently so list and pagination use the same filters.
 export async function listPatients(query) {
   const { page, limit, sort } = query;
   const filter = buildPatientFilter(query);
@@ -65,6 +69,7 @@ export async function listPatients(query) {
   return { data: docs.map(serialize), meta: pageMeta(page, limit, total) };
 }
 
+// Detail requests use the same projection and populated doctor shape as list items.
 export async function getPatient(id) {
   const patient = await Patient.findById(id)
     .select(FIELDS)
@@ -75,6 +80,7 @@ export async function getPatient(id) {
   return serialize(patient);
 }
 
+// Return a field-level error when a new assignment references an unknown doctor.
 async function assertDoctor(doctorId) {
   if (!(await Doctor.exists({ _id: doctorId }))) {
     throw ApiError.badRequest('Selected doctor does not exist', {
@@ -84,6 +90,7 @@ async function assertDoctor(doctorId) {
   }
 }
 
+// Record the creator and clear cached analytics after a successful creation.
 export async function createPatient(input, userId) {
   await assertDoctor(input.doctor);
   const patient = await Patient.create({ ...input, createdBy: userId });
@@ -91,6 +98,7 @@ export async function createPatient(input, userId) {
   return getPatient(patient.id);
 }
 
+// Validate reassignment, then save only submitted changes so search hooks also run.
 export async function updatePatient(id, changes) {
   const patient = await Patient.findById(id);
   if (!patient) throw ApiError.notFound('Patient');
@@ -102,7 +110,7 @@ export async function updatePatient(id, changes) {
   return getPatient(id);
 }
 
-/** `scope` lets nested routes enforce that a patient belongs to its doctor. */
+// The optional doctor scope prevents a nested route deleting another doctor's patient.
 export async function deletePatient(id, scope = {}) {
   const deleted = await Patient.findOneAndDelete({ _id: id, ...scope });
   if (!deleted) throw ApiError.notFound('Patient');

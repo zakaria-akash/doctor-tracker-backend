@@ -12,8 +12,15 @@ import {
 
 export const PATIENT_SORTS = ['newest', 'oldest', 'name_asc', 'name_desc', 'age_asc', 'age_desc'];
 
-const optionalAge = emptyToUndefined(z.coerce.number().int().min(0).max(120).optional());
+// Accept numbers and numeric strings, including 0, but reject blank, boolean, and array values.
+const age = z
+  .union([z.number(), z.string().trim().min(1)])
+  .pipe(z.coerce.number().int().min(0).max(120));
 
+// Query ages are optional, but supplied bounds use the same safe whole-number validation.
+const optionalAge = emptyToUndefined(age.optional());
+
+// Validate and normalize every supported filter before it reaches the query builder.
 export const listPatientsQuery = z
   .object({
     ...pagination,
@@ -37,29 +44,41 @@ export const listPatientsQuery = z
     path: ['minAge'],
   });
 
+// Require a supplied date rather than allowing null or boolean to coerce to the Unix epoch.
+const requiredAdmissionDate = z.preprocess(
+  (value) =>
+    value instanceof Date ||
+    (typeof value === 'string' && value.trim() !== '') ||
+    (typeof value === 'number' && Number.isFinite(value))
+      ? value
+      : undefined,
+  z.coerce.date().refine((date) => date <= new Date(), 'Admission date cannot be in the future'),
+);
+
 // Keep this base defaults-free: Zod 4 retains defaults when `.partial()` is used.
 const patientFields = z.object({
   name: z.string().trim().min(2, 'Name is too short').max(80),
-  age: z.coerce.number().int().min(0).max(120),
+  age,
   gender: z.enum(GENDERS),
   phone: emptyToUndefined(phone.optional()),
   email: emptyToUndefined(email.optional()),
   condition: z.enum(CONDITIONS),
   status: z.enum(STATUSES),
-  admissionDate: z.coerce
-    .date()
-    .refine((date) => date <= new Date(), 'Admission date cannot be in the future'),
+  admissionDate: requiredAdmissionDate,
   notes: emptyToUndefined(z.string().trim().max(500).optional()),
   doctor: objectId,
 });
 
+// Apply defaults only during creation so unrelated PATCH requests preserve existing values.
 export const createPatientBody = patientFields.extend({
   status: patientFields.shape.status.default('stable'),
   admissionDate: patientFields.shape.admissionDate.default(() => new Date()),
 });
 
+// Nested creation obtains the doctor from the URL rather than trusting the request body.
 export const createDoctorPatientBody = createPatientBody.omit({ doctor: true });
 
+// A partial edit must change at least one recognized field, including explicitly cleared fields.
 export const updatePatientBody = patientFields
   .partial()
   .refine((value) => Object.keys(value).length > 0, {

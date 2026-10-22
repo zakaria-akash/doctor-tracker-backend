@@ -1,8 +1,10 @@
 const DIACRITICS = /[\u0300-\u036f]/g;
 
+// Normalize once for storage and searching so casing and accented letters behave consistently.
 const normalize = (value) =>
   String(value).toLowerCase().normalize('NFKD').replace(DIACRITICS, '').trim();
 
+// Escape user input before embedding it in anchored regular expressions.
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Build normalized, indexable tokens for prefix search. */
@@ -12,6 +14,7 @@ export function buildSearchTokens(...values) {
   for (const value of values) {
     if (value === undefined || value === null || value === '') continue;
 
+    // Keep complete email addresses in addition to their component words.
     const text = normalize(value);
     if (text.includes('@')) tokens.add(text);
 
@@ -19,6 +22,7 @@ export function buildSearchTokens(...values) {
       if (word.length >= 2) tokens.add(word);
     }
 
+    // Store the complete digit-only number so unformatted phone prefixes remain searchable.
     const digits = text.replace(/\D/g, '');
     if (digits.length >= 6) tokens.add(digits);
   }
@@ -29,6 +33,7 @@ export function buildSearchTokens(...values) {
 /** Create an escaped, anchored, index-friendly MongoDB prefix-search filter. */
 export function buildSearchFilter(search) {
   const text = search ? normalize(search) : '';
+  // Bound multi-word queries to five terms and match each against the token index by prefix.
   const terms = (text.includes('@') ? [text] : text.split(/[^a-z0-9]+/))
     .filter(Boolean)
     .slice(0, 5);
