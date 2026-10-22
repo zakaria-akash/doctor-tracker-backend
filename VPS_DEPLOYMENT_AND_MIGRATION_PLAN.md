@@ -114,11 +114,13 @@ Only committed code is deployed. On the developer PC (Git Bash):
 
 ```bash
 # Frontend repository
-git archive --format=tar.gz -o web.tar.gz HEAD -- . ':(exclude)*.pdf'
+git -c core.autocrlf=false archive --format=tar.gz -o web.tar.gz HEAD -- . ':(exclude)*.pdf'
 # Backend repository
-git archive --format=tar.gz -o api.tar.gz HEAD
+git -c core.autocrlf=false archive --format=tar.gz -o api.tar.gz HEAD
 scp web.tar.gz api.tar.gz <ssh-user>@<vps>:
 ```
+
+`-c core.autocrlf=false` stops Git for Windows from converting line endings inside the archive, so every release matches its commit byte for byte.
 
 On the VPS (deploy the API first when both change):
 
