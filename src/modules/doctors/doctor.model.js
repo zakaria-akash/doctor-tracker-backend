@@ -19,6 +19,8 @@ const doctorSchema = new mongoose.Schema(
       lowercase: true,
       maxlength: 120,
     },
+    // Seeded doctors may point to a locally hosted WebP portrait; API-created doctors can omit it.
+    photoUrl: { type: String, trim: true, maxlength: 240 },
     searchTokens: { type: [String], select: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },

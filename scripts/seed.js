@@ -14,6 +14,8 @@ import { Patient, patientSearchTokens } from '../src/modules/patients/patient.mo
 const DAY = 86_400_000;
 const DOCTOR_COUNT = 48;
 const PATIENT_COUNT = 1_500;
+// Keep generated portrait paths stable so the frontend can serve these WebP files locally.
+const DOCTOR_PHOTO_COUNT = 8;
 const HOSPITALS = [
   'Green Valley General Hospital',
   'CityCare Medical Center',
@@ -76,6 +78,7 @@ const doctors = await Doctor.insertMany(
       email:
         `${firstName}.${lastName}.${index}`.toLowerCase().replace(/[^a-z0-9.]/g, '') +
         '@doctortracker.test',
+      photoUrl: `/images/doctors/doctor-${String((index % DOCTOR_PHOTO_COUNT) + 1).padStart(2, '0')}.webp`,
       createdBy: admin._id,
       createdAt: new Date(now - faker.number.int({ min: 30, max: 540 }) * DAY),
     };

@@ -16,7 +16,7 @@ const SORTS = {
 };
 
 // Explicit projection excludes internal search tokens and the creator from API responses.
-const FIELDS = 'name specialization hospital phone email createdAt updatedAt';
+const FIELDS = 'name specialization hospital phone email photoUrl createdAt updatedAt';
 
 // Build one filter for both the page query and its matching total count.
 export async function listDoctors({
